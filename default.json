@@ -1,0 +1,60 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Shared Renovate preset. Repos extend it with \"github>mbedia94/stack-standard\" and add only their own packageRules (and baseBranchPatterns [\"main\"] when they have no stg). See STANDARD.md.",
+  "extends": [
+    "config:recommended",
+    ":configMigration",
+    ":semanticCommits",
+    ":semanticCommitScopeDisabled",
+    "security:minimumReleaseAgeNpm",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "baseBranchPatterns": ["stg"],
+  "schedule": ["before 5am on monday"],
+  "timezone": "Europe/Madrid",
+  "rebaseWhen": "conflicted",
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "dependencyDashboard": true,
+  "platformAutomerge": false,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "automerge": true
+  },
+  "packageRules": [
+    {
+      "description": "All non-major npm updates in one PR, automerged into stg once CI passes",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-non-major",
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions (SHA-pinned with tag comment) in one PR, automerged once CI passes",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "github actions",
+      "groupSlug": "github-actions",
+      "automerge": true
+    },
+    {
+      "description": "Node runtime (.nvmrc, setup-node in CI, node Docker images) moves as one PR; node versioning only offers LTS lines. Majors stay manual (rule below)",
+      "matchManagers": ["nvm", "github-actions", "dockerfile", "docker-compose"],
+      "matchPackageNames": ["node", "/(?:^|/)node$/"],
+      "groupName": "node runtime",
+      "groupSlug": "node-runtime"
+    },
+    {
+      "description": "Majors are always reviewed by a human",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

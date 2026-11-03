@@ -1,0 +1,85 @@
+name: Promote stg → main (reusable)
+
+# Weekly release: main is fast-forwarded to the newest stg commit whose push-triggered runs on stg
+# are all green (PR CI and the staging deploy). Same commit, so CI is not rerun. Then the caller's
+# production deploy workflow is dispatched. Runs with the CALLER's token and repository.
+# Caller: see STANDARD.md ("Promoción"). Pin this workflow by SHA, never @main.
+on:
+  workflow_call:
+    inputs:
+      deploy_workflow:
+        description: Caller workflow file that deploys production (e.g. deploy.yml)
+        type: string
+        required: true
+      deploy_fields:
+        description: Extra space-separated key=value inputs for the deploy workflow (e.g. "environment=production")
+        type: string
+        default: ""
+      pass_sha:
+        description: Also pass sha=<promoted commit> to the deploy workflow
+        type: boolean
+        default: false
+      runner:
+        description: runs-on label (callers pass vars.CI_RUNNER || 'ubuntu-latest')
+        type: string
+        default: ubuntu-latest
+
+permissions: {}
+
+jobs:
+  promote:
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: write
+      checks: read
+      actions: write
+    steps:
+      - name: Fast-forward main to stg and deploy production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEPLOY_WORKFLOW: ${{ inputs.deploy_workflow }}
+          DEPLOY_FIELDS: ${{ inputs.deploy_fields }}
+          PASS_SHA: ${{ inputs.pass_sha }}
+        run: |
+          set -euo pipefail
+          read -r status ahead behind < <(gh api "repos/${GH_REPO}/compare/main...stg" --jq '"\(.status) \(.ahead_by) \(.behind_by)"')
+          if [[ "${ahead}" == "0" ]]; then
+            echo "stg is not ahead of main; nothing to promote"
+            exit 0
+          fi
+          if [[ "${status}" != "ahead" ]]; then
+            echo "::error title=main diverged::main has ${behind} commit(s) not in stg (hotfix?). Merge main into stg, then rerun."
+            exit 1
+          fi
+
+          # Promote the newest stg commit whose push-triggered workflow runs on stg are all finished
+          # and green (skipped/neutral allowed). Commits without runs (docs-only skipped by paths
+          # filters, or feature commits that arrived through a merge) are stepped over; a failing or
+          # pending commit stops the search so it is never bypassed.
+          sha=""
+          while read -r c; do
+            checks=$(gh api "repos/${GH_REPO}/actions/runs?head_sha=${c}&branch=stg&event=push&per_page=100" --jq '[.workflow_runs[] | {name, status, conclusion}]')
+            [[ "$(jq length <<<"${checks}")" == "0" ]] && continue
+            bad=$(jq -r '[.[] | select(.status != "completed" or (.conclusion | IN("success","skipped","neutral") | not)) | "\(.name)=\(.conclusion // .status)"] | join(", ")' <<<"${checks}")
+            if [[ -n "${bad}" ]]; then
+              echo "::error title=stg not green::${c:0:7} failing/pending: ${bad}"
+              exit 1
+            fi
+            sha="${c}"
+            break
+          done < <(gh api "repos/${GH_REPO}/compare/main...stg" --jq '.commits | reverse | .[].sha')
+          if [[ -z "${sha}" ]]; then
+            echo "::error title=stg not green::no commit in main...stg has push runs on stg"
+            exit 1
+          fi
+
+          # Fast-forward only (force=false): refuses if main is not an ancestor of sha.
+          gh api -X PATCH "repos/${GH_REPO}/git/refs/heads/main" -f sha="${sha}" -F force=false --silent
+          echo "main fast-forwarded to ${sha:0:7} (stg is ${ahead} commit(s) ahead)"
+
+          # A ref update made with GITHUB_TOKEN does not trigger the push deploy, so dispatch it.
+          args=()
+          for kv in ${DEPLOY_FIELDS}; do args+=(-f "${kv}"); done
+          [[ "${PASS_SHA}" == "true" ]] && args+=(-f "sha=${sha}")
+          gh workflow run "${DEPLOY_WORKFLOW}" --ref main "${args[@]}"
