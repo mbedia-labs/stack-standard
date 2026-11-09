@@ -3,20 +3,20 @@ name: Promote stg → main (reusable)
 # Weekly release: main is fast-forwarded to the newest stg commit whose push-triggered runs on stg
 # are all green (PR CI and the staging deploy). Same commit, so CI is not rerun. Then the caller's
 # production deploy workflow is dispatched. Runs with the CALLER's token and repository.
-# Caller: see STANDARD.md ("Promoción"). Pin this workflow by SHA, never @main.
+# Caller: see README.md ("Uso en un repo"). Pin this workflow by SHA, never @main.
 on:
   workflow_call:
     inputs:
       deploy_workflow:
-        description: Caller workflow file that deploys production (e.g. deploy.yml)
+        description: Caller workflow file(s) that deploy production, space-separated (e.g. "deploy.yml deploy-web.yml")
         type: string
         required: true
       deploy_fields:
-        description: Extra space-separated key=value inputs for the deploy workflow (e.g. "environment=production")
+        description: Extra space-separated key=value inputs passed to every deploy workflow (e.g. "environment=production")
         type: string
         default: ""
       pass_sha:
-        description: Also pass sha=<promoted commit> to the deploy workflow
+        description: Also pass sha=<promoted commit> to every deploy workflow
         type: boolean
         default: false
       runner:
@@ -82,4 +82,7 @@ jobs:
           args=()
           for kv in ${DEPLOY_FIELDS}; do args+=(-f "${kv}"); done
           [[ "${PASS_SHA}" == "true" ]] && args+=(-f "sha=${sha}")
-          gh workflow run "${DEPLOY_WORKFLOW}" --ref main "${args[@]}"
+          for wf in ${DEPLOY_WORKFLOW}; do
+            gh workflow run "${wf}" --ref main "${args[@]}"
+            echo "dispatched ${wf}"
+          done
