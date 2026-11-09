@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Shared Renovate preset. Repos extend it with \"github>mbedia94/stack-standard\" and add only their own packageRules (and baseBranchPatterns [\"main\"] when they have no stg). See STANDARD.md.",
+  "description": "Shared Renovate preset. Repos extend it with \"github>mbedia-labs/stack-standard\" and add only their own packageRules (and baseBranchPatterns [\"main\"] when they have no stg). See README.md.",
   "extends": [
     "config:recommended",
     ":configMigration",

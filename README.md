@@ -28,7 +28,7 @@ Las alertas de seguridad no esperan: Renovate las abre en cualquier momento, sin
 ```json
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>mbedia94/stack-standard"]
+  "extends": ["github>mbedia-labs/stack-standard"]
 }
 ```
 
@@ -57,7 +57,7 @@ jobs:
       contents: write
       checks: read
       actions: write
-    uses: mbedia94/stack-standard/.github/workflows/promote-stg-to-main.yml@<sha> # vX.Y.Z
+    uses: mbedia-labs/stack-standard/.github/workflows/promote-stg-to-main.yml@<sha> # vX.Y.Z
     with:
       deploy_workflow: deploy.yml
       runner: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
