@@ -59,7 +59,7 @@ jobs:
       actions: write
     uses: mbedia-labs/stack-standard/.github/workflows/promote-stg-to-main.yml@<sha> # vX.Y.Z
     with:
-      deploy_workflow: deploy.yml
+      deploy_workflow: deploy.yml                 # varios: "deploy.yml deploy-web.yml"
       runner: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
       # deploy_fields: "environment=production"   # inputs extra del deploy
       # pass_sha: true                            # añade sha=<commit promocionado>
