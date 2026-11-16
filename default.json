@@ -45,11 +45,18 @@
       "automerge": true
     },
     {
-      "description": "Node runtime (.nvmrc, setup-node in CI, node Docker images) moves as one PR; node versioning only offers LTS lines. Majors stay manual (rule below)",
+      "description": "Node runtime (.nvmrc, setup-node in CI, node Docker images) moves as one PR; node versioning only offers LTS lines. Non-majors automerge once CI passes; majors stay manual (rule below)",
       "matchManagers": ["nvm", "github-actions", "dockerfile", "docker-compose"],
       "matchPackageNames": ["node", "/(?:^|/)node$/"],
       "groupName": "node runtime",
-      "groupSlug": "node-runtime"
+      "groupSlug": "node-runtime",
+      "automerge": true
+    },
+    {
+      "description": "Docker images (Dockerfile, docker-compose): non-major updates automerged into stg once CI passes, one PR per image",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
     },
     {
       "description": "Majors are always reviewed by a human",

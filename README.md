@@ -14,7 +14,7 @@ Renovate, Node y pnpm. Este repo es la única fuente de verdad; los repos solo l
 
 | Cuándo | Qué |
 |---|---|
-| Lunes antes de las 5:00 (Europe/Madrid) | Renovate abre un PR agrupado con minor, patch, pin y digest contra `stg`. Si el CI pasa, se fusiona solo. Los mayores van en PRs separados, siempre con revisión manual. |
+| Lunes antes de las 5:00 (Europe/Madrid) | Renovate abre un PR agrupado con minor, patch, pin y digest contra `stg`. Si el CI pasa, se fusiona solo. Igual con el runtime de Node y las imágenes Docker (un PR por imagen). Los mayores van en PRs separados, siempre con revisión manual. |
 | Jueves 06:00 UTC | `promote-stg-to-main` hace fast-forward de `main` al commit más reciente de `stg` con todo en verde y lanza el deploy de producción. Si `main` ha divergido (hotfix), falla y avisa. |
 
 La promoción lleva a producción **todo** lo que está en verde en `stg`, no solo las dependencias.
