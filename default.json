@@ -14,7 +14,7 @@
   "timezone": "Europe/Madrid",
   "rebaseWhen": "conflicted",
   "labels": ["dependencies"],
-  "prConcurrentLimit": 5,
+  "prConcurrentLimit": 0,
   "dependencyDashboard": true,
   "platformAutomerge": false,
   "lockFileMaintenance": {
