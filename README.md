@@ -35,7 +35,8 @@ Las alertas de seguridad no esperan: Renovate las abre en cualquier momento, sin
 Solo se puede añadir:
 
 - `packageRules` propias del repo, cada una con un `description` que explique el motivo.
-- `"baseBranchPatterns": ["main"]` si el repo no tiene `stg` (no despliega).
+- `"baseBranchPatterns": ["main"]` si el repo no tiene `stg`: no despliega, o es un servicio de
+  infraestructura sin entorno de staging (ver [Imágenes Docker](#imágenes-docker)).
 
 Nada de horarios, límites ni `rangeStrategy` propios: si algo debe cambiar, se cambia aquí para todos.
 
@@ -73,6 +74,26 @@ aceptar `workflow_dispatch` en `main`.
 - Node 24 LTS: `.nvmrc` = `24`, `engines.node` = `>=24`, `node-version-file: .nvmrc` en CI, `FROM node:24-*` en Docker.
 - pnpm es el único gestor: `packageManager: pnpm@<última>`. Nada de npm, npx, yarn ni bun. La config de pnpm va en `pnpm-workspace.yaml`.
 - `minimumReleaseAge`: 24 h en pnpm y 3 días en Renovate. No se salta nunca.
+
+## Imágenes Docker
+
+Toda imagen que se despliega sale de un fichero que Renovate lee, con versión exacta y digest:
+
+| Caso | Dónde vive la versión |
+|---|---|
+| Código propio | `FROM` del Dockerfile de la app. |
+| Imagen de terceros en Cloud Run | `infra/<servicio>/Dockerfile` con solo `FROM <imagen>:<versión>@sha256:…`. El CI la construye, la sube a Artifact Registry y despliega con `gcloud run deploy --image …@<digest>`. Sin YAML de servicio ni `services replace`. |
+| Host con docker compose | `image: <imagen>:<versión>@sha256:…` literal en el compose. Sin variables ni `.env` para la imagen. |
+
+- Tag con versión exacta (`3.5.0`, `v2.9.1`). Nunca `latest` ni tags de major (`3`): cambian sin
+  aviso y Renovate no tiene versión con la que comparar.
+- El `FROM` apunta al registro de origen (Docker Hub, ghcr.io), no a un mirror: Renovate consulta
+  las versiones ahí.
+- El digest lo añade y mantiene Renovate (`docker:pinDigests`).
+
+Servicios de infraestructura sin staging (solo `main`): el CI del PR arranca la imagen nueva y
+comprueba que responde (smoke test). Es la puerta del automerge, porque fusionar despliega a
+producción.
 
 ## Cambios en este repo
 
