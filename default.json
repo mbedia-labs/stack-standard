@@ -15,6 +15,7 @@
   "rebaseWhen": "conflicted",
   "labels": ["dependencies"],
   "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
   "dependencyDashboard": true,
   "platformAutomerge": false,
   "lockFileMaintenance": {
