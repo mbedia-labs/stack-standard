@@ -1,8 +1,10 @@
 name: Promote stg → main (reusable)
 
 # Weekly release: main is fast-forwarded to the newest stg commit whose push-triggered runs on stg
-# are all green (PR CI and the staging deploy). Same commit, so CI is not rerun. Then the caller's
-# production deploy workflow is dispatched. Runs with the CALLER's token and repository.
+# are all green (PR CI and the staging deploy). Same commit, so CI is not rerun. Then each of the
+# caller's production deploy workflows is dispatched, unless its own on.push.paths / paths-ignore
+# filter excludes every file changed since the previous main (same rule a normal push applies).
+# Runs with the CALLER's token and repository.
 # Caller: see README.md ("Uso en un repo"). Pin this workflow by SHA, never @main.
 on:
   workflow_call:
@@ -74,15 +76,45 @@ jobs:
             exit 1
           fi
 
+          old_main=$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)
+
           # Fast-forward only (force=false): refuses if main is not an ancestor of sha.
           gh api -X PATCH "repos/${GH_REPO}/git/refs/heads/main" -f sha="${sha}" -F force=false --silent
           echo "main fast-forwarded to ${sha:0:7} (stg is ${ahead} commit(s) ahead)"
 
-          # A ref update made with GITHUB_TOKEN does not trigger the push deploy, so dispatch it.
+          # A ref update made with GITHUB_TOKEN does not trigger the push deploys, so dispatch them,
+          # applying each workflow's own push paths filter to the files changed in old_main...sha.
+          # The compare API lists at most 300 files: at that size every deploy runs.
+          changed=$(gh api "repos/${GH_REPO}/compare/${old_main}...${sha}" --jq '[.files[].filename]')
           args=()
           for kv in ${DEPLOY_FIELDS}; do args+=(-f "${kv}"); done
           [[ "${PASS_SHA}" == "true" ]] && args+=(-f "sha=${sha}")
           for wf in ${DEPLOY_WORKFLOW}; do
-            gh workflow run "${wf}" --ref main "${args[@]}"
-            echo "dispatched ${wf}"
+            filter='{"paths":null,"ignore":null}'
+            if command -v yq >/dev/null; then
+              filter=$(gh api "repos/${GH_REPO}/contents/.github/workflows/${wf}?ref=${sha}" --jq .content \
+                | base64 -d | yq -o=json '{"paths": (.on.push.paths // null), "ignore": (.on.push."paths-ignore" // null)}')
+            else
+              echo "::notice::yq not on this runner: ${wf} dispatched without checking its paths filter"
+            fi
+            # GitHub glob rules: * and ? stay within one path segment, ** crosses them, a leading !
+            # negates, and the last pattern that matches a file decides.
+            run=$(jq -n --argjson f "${filter}" --argjson files "${changed}" '
+              def re: "^" + (gsub("(?<c>[.+^$(){}|\\[\\]\\\\])"; "\\\(.c)")
+                | gsub("\\*\\*/"; "\u0001") | gsub("\\*\\*"; "\u0002")
+                | gsub("\\*"; "[^/]*") | gsub("\\?"; "[^/]")
+                | gsub("\u0001"; "(.*/)?") | gsub("\u0002"; ".*")) + "$";
+              def hit($pats): . as $file | reduce $pats[] as $p (false;
+                if ($p | startswith("!")) then (if ($file | test($p[1:] | re)) then false else . end)
+                else (if ($file | test($p | re)) then true else . end) end);
+              if ($files | length) >= 300 then true
+              elif $f.paths != null then any($files[]; hit($f.paths))
+              elif $f.ignore != null then any($files[]; hit($f.ignore) | not)
+              else true end')
+            if [[ "${run}" == "true" ]]; then
+              gh workflow run "${wf}" --ref main "${args[@]}"
+              echo "dispatched ${wf}"
+            else
+              echo "skipped ${wf}: no promoted file matches its push paths filter"
+            fi
           done

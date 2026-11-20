@@ -66,8 +66,14 @@ jobs:
       # pass_sha: true                            # añade sha=<commit promocionado>
 ```
 
-Fijar siempre por SHA (Renovate lo actualiza con un PR), nunca `@main`. El workflow de deploy debe
+Fijar siempre por SHA (Renovate lo actualiza con un PR), nunca `@main`. Cada workflow de deploy debe
 aceptar `workflow_dispatch` en `main`.
+
+Un push hecho con `GITHUB_TOKEN` no dispara workflows, así que la promoción los lanza ella misma. Para
+no redesplegar lo que no ha cambiado, aplica el filtro `on.push.paths` (o `paths-ignore`) de cada
+workflow a los ficheros cambiados desde el `main` anterior, con las mismas reglas de glob que GitHub. Un
+deploy sin filtro se lanza siempre. Por eso hay que listar en `deploy_workflow` todos los deploys de
+producción, también los que solo cambian de vez en cuando (por ejemplo una imagen de terceros).
 
 ## Runtime y gestor de paquetes
 
