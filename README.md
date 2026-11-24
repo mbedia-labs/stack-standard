@@ -77,7 +77,7 @@ producción, también los que solo cambian de vez en cuando (por ejemplo una ima
 
 ## Runtime y gestor de paquetes
 
-- Node 24 LTS: `.nvmrc` = `24`, `engines.node` = `>=24`, `node-version-file: .nvmrc` en CI, `FROM node:24-*` en Docker.
+- Node 26 LTS: `.nvmrc` = `26`, `engines.node` = `>=26`, `node-version-file: .nvmrc` en CI, `FROM node:26-*` en Docker. El salto de mayor lo abre Renovate como PR manual; `engines.node` se sube a mano en ese mismo PR.
 - pnpm es el único gestor: `packageManager: pnpm@<última>`. Nada de npm, npx, yarn ni bun. La config de pnpm va en `pnpm-workspace.yaml`.
 - `minimumReleaseAge`: 24 h en pnpm y 3 días en Renovate. No se salta nunca.
 
