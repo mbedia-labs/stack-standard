@@ -75,6 +75,19 @@ workflow a los ficheros cambiados desde el `main` anterior, con las mismas regla
 deploy sin filtro se lanza siempre. Por eso hay que listar en `deploy_workflow` todos los deploys de
 producción, también los que solo cambian de vez en cuando (por ejemplo una imagen de terceros).
 
+## CI en runners self-hosted
+
+Los jobs de un runner self-hosted comparten la red del host con sus servicios y con otros jobs que
+corren a la vez. Por eso un job nunca ocupa un puerto fijo del host:
+
+- Service containers sin puerto de host fijo: `ports: ["5432"]` (Docker elige uno libre) y la URL con
+  `${{ job.services.postgres.ports['5432'] }}`. Nada de `5432:5432`.
+- Servidores de test (Playwright `webServer`, `next start`, APIs): puerto libre elegido en el propio job
+  (por ejemplo `PORT=$(node -e "const s=require('net').createServer().listen(0,()=>{console.log(s.address().port);s.close()})")`),
+  pasado por variable de entorno al config.
+- Los servicios permanentes del host no publican los puertos habituales de desarrollo (3000, 3001, 4173,
+  5173, 5432, 6379, 8080, 9000).
+
 ## Runtime y gestor de paquetes
 
 - Node 26 LTS: `.nvmrc` = `26`, `engines.node` = `>=26`, `node-version-file: .nvmrc` en CI, `FROM node:26-*` en Docker. El salto de mayor lo abre Renovate como PR manual; `engines.node` se sube a mano en ese mismo PR.
